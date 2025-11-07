@@ -1,14 +1,9 @@
 #!/bin/bash
-# 1) Create working dir and JWT
-mkdir eth-fork && cd eth-fork
-openssl rand -hex 32 > jwt.hex
 
-# 2) Save .env, docker-compose.yml, and Makefile (above)
-
-# 3) Start
+# Start
 make up
 
-# 4) Verify endpoints (from another machine or the host)
+# Verify endpoints (from another machine or the host)
 # Anvil (prefunded dev accounts etc.)
 curl -s -X POST http://<HOST_IP>:8547 \
   -H "Content-Type: application/json" \
