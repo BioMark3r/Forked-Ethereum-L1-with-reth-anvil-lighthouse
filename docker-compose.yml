@@ -42,13 +42,13 @@ services:
       timeout: 5s
       retries: 30
 
-  lighthouse:
+lighthouse:
     image: sigp/lighthouse:latest
     container_name: lighthouse
     restart: unless-stopped
     depends_on:
       - reth-fork
-    entrypoint: ["lighthouse"]   # required so "bn" is found
+    entrypoint: ["lighthouse"]               # ensure "bn" subcommand is found
     command:
       - bn
       - --network
@@ -57,26 +57,24 @@ services:
       - http://reth-fork:8551
       - --execution-jwt
       - /secrets/jwt.hex
-      # Expose REST API remotely
+      # --- REST API (HTTP) exposed on 0.0.0.0:5052 ---
       - --http
       - --http-address
       - 0.0.0.0
       - --http-port
       - "5052"
-      # (Optional) loosen CORS for browser clients; set to "*" or your origin(s)
+      # Optional CORS (uncomment if calling from a browser)
       # - --http-allow-origin
       # - "*"
-      # (Optional) faster start on public nets:
-      # - --checkpoint-sync-url
-      # - https://mainnet.checkpoint.sigp.io
     ports:
-      - "5052:5052"   # Lighthouse REST API
-      # If you also need p2p from outside your host, expose TCP/UDP 9000:
-      # - "9000:9000/tcp"
-      # - "9000:9000/udp"
+      - "5052:5052"                          # publish REST to the host
     volumes:
       - ./jwt.hex:/secrets/jwt.hex:ro
-
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5052/eth/v1/node/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
   anvil:
     image: ghcr.io/foundry-rs/foundry:latest
     container_name: anvil
