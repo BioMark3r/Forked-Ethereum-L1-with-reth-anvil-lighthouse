@@ -1,26 +1,26 @@
 SHELL := /bin/bash
 
 up:
-\tdocker compose up -d
+  docker compose up -d
 
 down:
-\tdocker compose down
+  docker compose down
 
 recreate:
-\tdocker compose up -d --force-recreate --remove-orphans
+  docker compose up -d --force-recreate --remove-orphans
 
 logs:
-\tdocker compose logs -f
+  docker compose logs -f
 
 logs-reth:
-\tdocker compose logs -f reth-fork
+  docker compose logs -f reth-fork
 
 logs-lh:
-\tdocker compose logs -f lighthouse
+  docker compose logs -f lighthouse
 
 logs-anvil:
-\tdocker compose logs -f anvil
+  docker compose logs -f anvil
 
 ps:
-\tdocker compose ps
+  docker compose ps
 
