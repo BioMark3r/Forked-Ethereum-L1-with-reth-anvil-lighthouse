@@ -1,0 +1,102 @@
+version: "3.8"
+
+services:
+  reth-fork:
+    image: ghcr.io/paradigmxyz/reth:latest
+    container_name: reth-fork
+    restart: unless-stopped
+    command:
+      - node
+      - --chain
+      - mainnet
+      # Drive Reth from a remote mainnet RPC (debug "RPC-consensus" mode)
+      - --debug.rpc-consensus-url
+      - ${MAINNET_RPC_WSS}
+      # Data dir
+      - --datadir
+      - /data
+      # JSON-RPC (HTTP)
+      - --http
+      - --http.addr
+      - 0.0.0.0
+      - --http.port
+      - "8545"
+      # Engine API (JWT-protected) for CL
+      - --authrpc.addr
+      - 0.0.0.0
+      - --authrpc.port
+      - "8551"
+      - --authrpc.jwtsecret
+      - /secrets/jwt.hex
+    ports:
+      - "8545:8545"   # Reth JSON-RPC (HTTP)
+      - "8551:8551"   # Reth Engine API (JWT)
+    volumes:
+      - reth_data:/data
+      - ./jwt.hex:/secrets/jwt.hex:ro
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8545"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+
+  lighthouse:
+    image: sigp/lighthouse:latest
+    container_name: lighthouse
+    restart: unless-stopped
+    depends_on:
+      - reth-fork
+    entrypoint: ["lighthouse"]   # required so "bn" is found
+    command:
+      - bn
+      - --network
+      - ${LIGHTHOUSE_NETWORK}
+      - --execution-endpoint
+      - http://reth-fork:8551
+      - --execution-jwt
+      - /secrets/jwt.hex
+      # Expose REST API remotely
+      - --http
+      - --http-address
+      - 0.0.0.0
+      - --http-port
+      - "5052"
+      # (Optional) loosen CORS for browser clients; set to "*" or your origin(s)
+      # - --http-allow-origin
+      # - "*"
+      # (Optional) faster start on public nets:
+      # - --checkpoint-sync-url
+      # - https://mainnet.checkpoint.sigp.io
+    ports:
+      - "5052:5052"   # Lighthouse REST API
+      # If you also need p2p from outside your host, expose TCP/UDP 9000:
+      # - "9000:9000/tcp"
+      # - "9000:9000/udp"
+    volumes:
+      - ./jwt.hex:/secrets/jwt.hex:ro
+
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: anvil
+    restart: unless-stopped
+    entrypoint: ["anvil"]
+    command:
+      - --fork-url
+      - http://reth-fork:8545
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8547"
+      - --auto-impersonate
+      - --mnemonic
+      - test test test test test test test test test test test junk
+    ports:
+      - "8547:8547"   # Anvil JSON-RPC (remote reachable)
+    depends_on:
+      - reth-fork
+
+volumes:
+  reth_data:
+
