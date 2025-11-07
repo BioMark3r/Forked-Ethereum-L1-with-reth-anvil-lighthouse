@@ -1,14 +1,13 @@
 # Forked-Ethereum-L1-with-reth-anvil-lighthouse
 
 # 🧱 Ethereum L1 Fork Dev Environment  
-### Reth (Execution) • Lighthouse (Consensus) • Anvil (Dev RPC) • Caddy (TLS Proxy)
+### Reth (Execution) • Lighthouse (Consensus) • Anvil (Dev RPC)
 
 This setup lets you:
 
 - Fork Ethereum L1 using **Reth** in debug/RPC-consensus mode  
 - Connect **Lighthouse** to Reth using JWT auth (Engine API)  
-- Use **Anvil** for testing with prefunded dev accounts (Anvil front-ends Reth)  
-- Securely expose everything over **HTTPS** using **Caddy** with optional IP allow-lists and Basic Auth  
+- Use **Anvil** for testing with prefunded dev accounts (Anvil front-ends Reth)
 
 ---
 
@@ -38,31 +37,17 @@ This secret is shared between Reth and Lighthouse for Engine API authentication.
 # .env
 MAINNET_RPC_WSS=wss://eth-mainnet.g.alchemy.com/v2/<YOUR_KEY>
 LIGHTHOUSE_NETWORK=mainnet
-
-# Your domain (must have DNS pointing to your server)
-DOMAIN_BASE=example.com
-EMAIL_ACME=you@example.com
-
-DOMAIN_LH=lh.${DOMAIN_BASE}
-DOMAIN_ANVIL=anvil.${DOMAIN_BASE}
-DOMAIN_RETH=reth.${DOMAIN_BASE}
-
-# Optional: Basic Auth (see below to generate a hash)
-BASIC_AUTH_USER=nick
-BASIC_AUTH_HASHED_PASS=
-# Optional: restrict access by IPs (CIDR list)
-ALLOWLIST_CIDRS=
 ```
 
 ---
 
 ### 4️⃣ Generate a bcrypt password hash (optional, but recommended)
 
+If you’re using authentication layers in the future (not needed in this minimal version):
+
 ```bash
 make auth PASS="YourStrongPassword"
 ```
-
-Copy the printed hash and paste it into `BASIC_AUTH_HASHED_PASS` in your `.env`.
 
 ---
 
@@ -70,65 +55,45 @@ Copy the printed hash and paste it into `BASIC_AUTH_HASHED_PASS` in your `.env`.
 
 Ensure you have the following files in your directory:
 
-- `docker-compose.yml` (Reth, Lighthouse, Anvil, Caddy setup)  
-- `Caddyfile` (TLS & proxy config)  
+- `docker-compose.yml` (Reth, Lighthouse, and Anvil setup)  
 - `Makefile` (handy shortcuts)  
 - `jwt.hex` (JWT secret)  
 - `.env` (your environment variables)
 
-*(Use the exact files from our setup conversation above.)*
+*(Use the files from the previous setup.)*
 
 ---
 
-### 6️⃣ DNS Setup
-
-In your DNS provider, create **A** or **CNAME** records pointing to your server:
-
-| Subdomain | Target | Purpose |
-|------------|---------|----------|
-| `reth.example.com` | your-server-ip | Reth JSON-RPC (HTTPS) |
-| `anvil.example.com` | your-server-ip | Anvil dev RPC (HTTPS) |
-| `lh.example.com` | your-server-ip | Lighthouse REST (HTTPS) |
-
-> You must expose TCP **80** and **443** for Caddy to request Let’s Encrypt certificates.
-
----
-
-### 7️⃣ Launch everything 🚀
+### 6️⃣ Launch everything 🚀
 
 ```bash
 make up
 ```
 
-Docker will start all four services:
+Docker will start all three services:
 
 - **reth-fork** — Ethereum L1 fork using your upstream RPC  
 - **lighthouse** — Beacon node connecting to Reth’s Engine API  
 - **anvil** — Dev RPC layer for test accounts  
-- **caddy** — Reverse proxy providing HTTPS and access control  
-
-Wait about a minute for Caddy to fetch SSL certificates.
 
 ---
 
-### 8️⃣ Verify endpoints
+### 7️⃣ Verify endpoints
 
 ```bash
 # Lighthouse REST API
-curl -s https://lh.example.com/eth/v1/node/health
+curl -s http://localhost:5052/eth/v1/node/health
 
 # Anvil RPC (with prefunded accounts)
-curl -s -X POST https://anvil.example.com   -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_accounts","params":[]}'   -u nick:YourStrongPassword
+curl -s -X POST http://localhost:8547   -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_accounts","params":[]}'
 
 # Reth RPC
-curl -s -X POST https://reth.example.com   -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'   -u nick:YourStrongPassword
+curl -s -X POST http://localhost:8545   -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
 ```
-
-If Basic Auth is enabled, include the `-u username:password` flag.
 
 ---
 
-### 9️⃣ Useful Make commands
+### 8️⃣ Useful Make commands
 
 | Command | Description |
 |----------|-------------|
@@ -140,20 +105,16 @@ If Basic Auth is enabled, include the `-u username:password` flag.
 | `make logs-anvil` | Logs from Anvil |
 | `make logs-lh` | Logs from Lighthouse |
 | `make jwt` | Regenerate JWT secret |
-| `make auth PASS="password"` | Generate Basic Auth bcrypt hash |
 | `make clean` | Remove all containers & volumes |
-| `make status` | Print container status & endpoint URLs |
+| `make status` | Print container status |
 
 ---
 
 ### 🔐 Security Recommendations
 
-- Restrict inbound access to ports **80/443** only — do **not** expose 8545/8547/5052 directly.  
-- Use `ALLOWLIST_CIDRS` to limit which IPs can access your RPC endpoints.  
-- Use Basic Auth for any public-facing instance.  
-- Back up your `jwt.hex` — both Reth and Lighthouse must share the same secret.  
-- For LAN-only testing, switch Caddy to use its internal CA:  
-  Add `tls internal` inside each site block in the `Caddyfile`.
+- Restrict inbound access to the ports you expose (8545, 8547, 5052).  
+- Keep `jwt.hex` private; both Reth and Lighthouse must share the same secret.  
+- Use firewall or Docker network settings to limit exposure.
 
 ---
 
@@ -162,7 +123,6 @@ If Basic Auth is enabled, include the `-u username:password` flag.
 | Symptom | Likely cause | Fix |
 |----------|---------------|-----|
 | `Error: bn not found` | Missing entrypoint on Lighthouse | Fixed in current compose (uses `entrypoint: ["lighthouse"]`) |
-| Caddy fails ACME challenge | Port 80 blocked or DNS wrong | Ensure ports 80/443 open and domain resolves |
 | Lighthouse says “unauthorized EL” | JWT mismatch | Delete and re-generate `jwt.hex` for both |
 | Anvil RPC fails | Reth not healthy yet | Wait a bit or check `make logs-reth` |
 
@@ -189,10 +149,9 @@ After setup, you’ll have:
 
 | Service | URL | Role |
 |----------|------|------|
-| **Anvil (HTTPS)** | `https://anvil.example.com` | Local test RPC (prefunded accounts) |
-| **Reth (HTTPS)** | `https://reth.example.com` | Forked Ethereum L1 execution layer |
-| **Lighthouse (HTTPS)** | `https://lh.example.com` | Beacon node REST API |
-| **Caddy (proxy)** | Handles SSL, auth, and network exposure |
+| **Anvil** | `http://localhost:8547` | Local test RPC (prefunded accounts) |
+| **Reth** | `http://localhost:8545` | Forked Ethereum L1 execution layer |
+| **Lighthouse** | `http://localhost:5052` | Beacon node REST API |
 
 ---
 
