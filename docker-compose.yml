@@ -59,6 +59,7 @@ services:
       - http://reth-fork:8551
       - --execution-jwt
       - /secrets/jwt.hex
+      - --allow-insecure-genesis-sync
       - --http
       - --http-address
       - 0.0.0.0
