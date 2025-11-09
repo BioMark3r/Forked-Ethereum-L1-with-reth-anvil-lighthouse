@@ -42,7 +42,8 @@ services:
     container_name: lighthouse
     restart: unless-stopped
     depends_on:
-      - reth-fork
+      reth-fork:
+        condition: service_healthy
     entrypoint: ["lighthouse"]
     volumes:
       - ./jwt.hex:/secrets/jwt.hex:ro
