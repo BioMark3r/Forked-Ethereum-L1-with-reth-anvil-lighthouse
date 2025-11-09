@@ -31,19 +31,13 @@ services:
       - "8551"
       - --authrpc.jwtsecret
       - /secrets/jwt.hex
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8545"]
-      interval: 15s
-      timeout: 5s
-      retries: 30
 
   lighthouse:
     image: sigp/lighthouse:latest
     container_name: lighthouse
     restart: unless-stopped
     depends_on:
-      reth-fork:
-        condition: service_healthy
+      - reth-fork
     entrypoint: ["lighthouse"]
     volumes:
       - ./jwt.hex:/secrets/jwt.hex:ro
