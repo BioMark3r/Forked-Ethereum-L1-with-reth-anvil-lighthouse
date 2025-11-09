@@ -1,11 +1,37 @@
 SHELL := /bin/bash
 
-# === Basic Docker Compose Commands ===
+# Load .env if present (for Docker Compose variables)
+-include .env
 
+# === Default confirmations offset if not specified ===
+CONFIRMATIONS ?= 5
+
+# === Start all services (standard fork) ===
 up:
-	@echo "🚀 Starting all containers..."
+	@echo "🚀 Starting full stack..."
 	docker compose up -d
 
+# === Bring up Anvil pinned at a specific block number ===
+# Usage: make up-pin BLOCK=19304240
+# If no BLOCK is passed, falls back to latest minus CONFIRMATIONS using reth itself.
+up-pin:
+ifeq ($(BLOCK),)
+	@echo "❌ No BLOCK number provided. Usage: make up-pin BLOCK=<number>"
+	@exit 1
+else
+	@echo "📌 Using user-provided block number $(BLOCK)"
+	FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil
+endif
+
+# === Restart Anvil with a pinned block (preserves other containers) ===
+restart-pin:
+ifeq ($(BLOCK),)
+	@echo "❌ No BLOCK number provided. Usage: make restart-pin BLOCK=<number>"
+	@exit 1
+else
+	@echo "🔁 Restarting Anvil pinned at block $(BLOCK)"
+	FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d --force-recreate anvil
+endif
 down:
 	@echo "🧹 Stopping and removing all containers..."
 	docker compose down
