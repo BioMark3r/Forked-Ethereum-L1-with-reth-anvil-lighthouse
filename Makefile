@@ -8,30 +8,35 @@ CONFIRMATIONS ?= 5
 
 # === Start all services (standard fork) ===
 up:
-	@echo "🚀 Starting full stack..."
-	docker compose up -d
+	@echo "🚀 Starting Reth + Lighthouse + Anvil (latest head)…"
+	docker compose up -d reth-fork lighthouse
+	# wait for reth JSON-RPC to be reachable
+	for i in {1..60}; do \
+	  curl -sf http://127.0.0.1:8545 >/dev/null && break || sleep 1; \
+	done
+	docker compose up -d anvil
 
-# === Bring up Anvil pinned at a specific block number ===
-# Usage: make up-pin BLOCK=19304240
-# If no BLOCK is passed, falls back to latest minus CONFIRMATIONS using reth itself.
+# Pin to a specific block: make up-pin BLOCK=19304240
 up-pin:
 ifeq ($(BLOCK),)
-	@echo "❌ No BLOCK number provided. Usage: make up-pin BLOCK=<number>"
-	@exit 1
+	@echo "❌ No BLOCK provided. Usage: make up-pin BLOCK=<number>"; exit 1
 else
-	@echo "📌 Using user-provided block number $(BLOCK)"
+	@echo "📌 Starting Reth + Lighthouse, then Anvil pinned to $(BLOCK)…"
+	docker compose up -d reth-fork lighthouse
+	for i in {1..60}; do \
+	  curl -sf http://127.0.0.1:8545 >/dev/null && break || sleep 1; \
+	done
 	FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil
 endif
 
-# === Restart Anvil with a pinned block (preserves other containers) ===
 restart-pin:
 ifeq ($(BLOCK),)
-	@echo "❌ No BLOCK number provided. Usage: make restart-pin BLOCK=<number>"
-	@exit 1
+	@echo "❌ No BLOCK provided. Usage: make restart-pin BLOCK=<number>"; exit 1
 else
-	@echo "🔁 Restarting Anvil pinned at block $(BLOCK)"
+	@echo "🔁 Restarting Anvil pinned to $(BLOCK)…"
 	FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d --force-recreate anvil
 endif
+
 down:
 	@echo "🧹 Stopping and removing all containers..."
 	docker compose down
@@ -59,9 +64,6 @@ logs-lh:
 
 logs-anvil:
 	docker compose logs -f anvil
-
-logs-caddy:
-	docker compose logs -f caddy
 
 # === System & Utility Commands ===
 
