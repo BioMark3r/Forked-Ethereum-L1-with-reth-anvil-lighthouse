@@ -81,6 +81,7 @@ services:
       anvil
       --fork-url http://reth-fork:8545
       $${FORK_BLOCK_NUMBER:+--fork-block-number $${FORK_BLOCK_NUMBER}}
+      --chain-id 1
       --host 0.0.0.0
       --port 8547
       --auto-impersonate
