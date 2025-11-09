@@ -83,6 +83,8 @@ services:
     command:
       - --fork-url
       - http://reth-fork:8545
+      - --fork-block-number
+      - ${FORK_BLOCK_NUMBER}
       - --host
       - 0.0.0.0
       - --port
