@@ -4,7 +4,6 @@ services:
     container_name: reth-fork
     restart: unless-stopped
     env_file: [.env]
-    # keep your network/ip/ports/volumes as you had them
     volumes:
       - reth_data:/data
       - ./jwt.hex:/secrets/jwt.hex:ro
@@ -14,24 +13,22 @@ services:
     ports:
       - "8545:8545"
       - "8551:8551"
-    command:
-      - node
-      - --chain
-      - mainnet
-      - --datadir
-      - /data
-      - --http
-      - --http.addr 
-      - 0.0.0.0
-      - --http.port
-      - "8545"
-      - --authrpc.addr
-      - 0.0.0.0
-      - --authrpc.port
-      - "8551"
-      - --authrpc.jwtsecret
-      - /secrets/jwt.hex
-      - $${RETH_TIP_HASH:+--debug.tip $${RETH_TIP_HASH}}
+    entrypoint: ["/bin/sh","-lc"]
+    command: |
+      set -e
+      CMD="reth node \
+        --chain mainnet \
+        --datadir /data \
+        --http --http.addr 0.0.0.0 --http.port 8545 \
+        --authrpc.addr 0.0.0.0 --authrpc.port 8551 \
+        --authrpc.jwtsecret /secrets/jwt.hex"
+      if [ -n "${RETH_TIP_HASH}" ] && [ "${RETH_TIP_HASH}" != "null" ]; then
+        CMD="$CMD --debug.tip ${RETH_TIP_HASH}"
+        echo "Using debug tip: ${RETH_TIP_HASH}"
+      else
+        echo "No RETH_TIP_HASH provided; starting without --debug.tip"
+      fi
+      exec $CMD
 
   lighthouse:
     image: sigp/lighthouse:latest
