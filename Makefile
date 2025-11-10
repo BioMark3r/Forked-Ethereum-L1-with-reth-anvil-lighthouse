@@ -10,6 +10,23 @@ SHELL := /bin/bash
 -include .env
 .ONESHELL:
 
+discover-el:
+	@EL_IP=$$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' reth-fork 2>/dev/null || true); \
+	if [ -z "$$EL_IP" ]; then echo "Starting reth…" ; docker compose up -d reth-fork ; \
+	sleep 2 ; EL_IP=$$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' reth-fork); fi; \
+	echo "$$EL_IP"
+
+up-auto:
+	@EL_IP=$$(make -s discover-el); \
+	echo "EL at $$EL_IP"; \
+	RETH_ENGINE_URL="http://$$EL_IP:8551" \
+	RETH_RPC_URL="http://$$EL_IP:8545" \
+	docker compose up -d lighthouse; \
+	RETH_ENGINE_URL="http://$$EL_IP:8551" \
+	RETH_RPC_URL="http://$$EL_IP:8545" \
+	docker compose up -d anvil; \
+	echo "Lighthouse and Anvil pointed at $$EL_IP"
+
 # Helper: get latest execution tip hash from your MAINNET_RPC_HTTPS
 # Requires: jq installed locally
 tip-hash:
