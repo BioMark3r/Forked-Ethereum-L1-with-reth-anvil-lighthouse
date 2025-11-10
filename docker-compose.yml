@@ -13,25 +13,16 @@ services:
     ports:
       - "8545:8545"   # Reth JSON-RPC (HTTP)
       - "8551:8551"   # Engine API (JWT)
-    command:
-      - node
-      - --chain
-      - mainnet
-      - --debug.rpc-consensus-url
-      - ${MAINNET_RPC_WSS?Set MAINNET_RPC_WSS in .env}
-      - --datadir
-      - /data
-      - --http
-      - --http.addr
-      - 0.0.0.0
-      - --http.port
-      - "8545"
-      - --authrpc.addr
-      - 0.0.0.0
-      - --authrpc.port
-      - "8551"
-      - --authrpc.jwtsecret
-      - /secrets/jwt.hex
+    entrypoint: ["/bin/sh", "-lc"]
+    command: >
+      reth node
+      --chain mainnet
+      --debug.rpc-consensus-url ${MAINNET_RPC_WSS?Set MAINNET_RPC_WSS in .env}
+      $${RETH_TIP_HASH:+--debug.tip $${RETH_TIP_HASH}}
+      --datadir /data
+      --http --http.addr 0.0.0.0 --http.port 8545
+      --authrpc.addr 0.0.0.0 --authrpc.port 8551
+      --authrpc.jwtsecret /secrets/jwt.hex
 
   lighthouse:
     image: sigp/lighthouse:latest
