@@ -1,23 +1,24 @@
-
 services:
   reth-fork:
     image: ghcr.io/paradigmxyz/reth:latest
     container_name: reth-fork
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
+    networks:
+      ethnet:
+        ipv4_address: 172.28.0.10
     volumes:
       - reth_data:/data
       - ./jwt.hex:/secrets/jwt.hex:ro
     ports:
       - "8545:8545"   # Reth JSON-RPC (HTTP)
-      - "8551:8551"   # Reth Engine API (JWT)
+      - "8551:8551"   # Engine API (JWT)
     command:
       - node
       - --chain
       - mainnet
       - --debug.rpc-consensus-url
-      - ${MAINNET_RPC_WSS}
+      - ${MAINNET_RPC_WSS?Set MAINNET_RPC_WSS in .env}
       - --datadir
       - /data
       - --http
@@ -39,18 +40,20 @@ services:
     depends_on:
       - reth-fork
     entrypoint: ["lighthouse"]
+    env_file: [.env]
+    networks:
+      ethnet:
+        ipv4_address: 172.28.0.11
     volumes:
       - ./jwt.hex:/secrets/jwt.hex:ro
     ports:
       - "5052:5052"   # Lighthouse REST API
-    env_file:
-      - .env
     command:
       - bn
       - --network
-      - ${LIGHTHOUSE_NETWORK}
+      - ${LIGHTHOUSE_NETWORK:-mainnet}
       - --execution-endpoint
-      - http://reth-fork:8551
+      - http://172.28.0.10:8551     # <— talk to Reth by IP
       - --execution-jwt
       - /secrets/jwt.hex
       - --allow-insecure-genesis-sync
@@ -59,11 +62,9 @@ services:
       - 0.0.0.0
       - --http-port
       - "5052"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5052/eth/v1/node/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 30
+      # optional:
+      # - --http-allow-origin
+      # - "*"
 
   anvil:
     image: ghcr.io/foundry-rs/foundry:latest
@@ -72,9 +73,14 @@ services:
     depends_on:
       - reth-fork
     entrypoint: ["/bin/sh", "-lc"]
+    networks:
+      ethnet:
+        ipv4_address: 172.28.0.12
+    ports:
+      - "8547:8547"   # Anvil JSON-RPC
     command: >
       anvil
-      --fork-url http://reth-fork:8545
+      --fork-url http://172.28.0.10:8545      # <— talk to Reth by IP
       $${FORK_BLOCK_NUMBER:+--fork-block-number $${FORK_BLOCK_NUMBER}}
       --chain-id 1
       --network-id 1
@@ -82,8 +88,13 @@ services:
       --port 8547
       --auto-impersonate
       --mnemonic "test test test test test test test test test test test junk"
-    ports:
-      - "8547:8547"
 
 volumes:
   reth_data:
+
+networks:
+  ethnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
