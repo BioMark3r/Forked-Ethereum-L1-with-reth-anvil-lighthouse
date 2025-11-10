@@ -6,36 +6,53 @@ SHELL := /bin/bash
 # === Default confirmations offset if not specified ===
 CONFIRMATIONS ?= 5
 
-# === Start all services (standard fork) ===
-up:
-	@echo "🚀 Starting Reth + Lighthouse + Anvil (latest head)…"
-	docker compose up -d reth-fork lighthouse
-	# wait for reth JSON-RPC to be reachable
-	for i in {1..60}; do \
-	  curl -sf http://127.0.0.1:8545 >/dev/null && break || sleep 1; \
-	done
-	docker compose up -d anvil
+SHELL := /bin/bash
+-include .env
+.ONESHELL:
 
-# Pin to a specific block: make up-pin BLOCK=19304240
+# Helper: get latest execution tip hash from your MAINNET_RPC_HTTPS
+# Requires: jq installed locally
+tip-hash:
+	@if [ -z "$(MAINNET_RPC_HTTPS)" ]; then \
+	  echo "MAINNET_RPC_HTTPS not set; cannot auto-compute tip" >&2; exit 2; \
+	fi
+	@curl -s -X POST "$(MAINNET_RPC_HTTPS)" \
+	  -H 'Content-Type: application/json' \
+	  --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' \
+	  | jq -r .result.hash
+
+# Start everything, auto tip if no BLOCK is provided (Anvil follows latest unless pinned)
+up-auto:
+	@echo "🚀 Starting Reth (auto-tip if available) + Lighthouse + Anvil…"
+	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then \
+	  T=$$(make -s tip-hash); \
+	else \
+	  T=""; \
+	fi; \
+	if [ -n "$$T" ] && [ "$$T" != "null" ]; then \
+	  echo "📌 Using Reth tip $$T"; \
+	  RETH_TIP_HASH=$$T docker compose up -d reth-fork; \
+	else \
+	  echo "ℹ️ No tip available (or MAINNET_RPC_HTTPS unset); starting Reth without --debug.tip"; \
+	  docker compose up -d reth-fork; \
+	fi; \
+	docker compose up -d lighthouse; \
+	if [ -n "$(BLOCK)" ]; then \
+	  echo "📎 Pinning Anvil at block $(BLOCK)"; \
+	  FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil; \
+	else \
+	  docker compose up -d anvil; \
+	fi
+
+
 up-pin:
-ifeq ($(BLOCK),)
-	@echo "❌ No BLOCK provided. Usage: make up-pin BLOCK=<number>"; exit 1
-else
-	@echo "📌 Starting Reth + Lighthouse, then Anvil pinned to $(BLOCK)…"
-	docker compose up -d reth-fork lighthouse
-	for i in {1..60}; do \
-	  curl -sf http://127.0.0.1:8545 >/dev/null && break || sleep 1; \
-	done
-	FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil
-endif
+	@if [ -z "$(BLOCK)" ]; then echo "Usage: make up-pin BLOCK=<number>"; exit 1; fi
+	@docker compose up -d reth-fork lighthouse
+	@FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil
 
 restart-pin:
-ifeq ($(BLOCK),)
-	@echo "❌ No BLOCK provided. Usage: make restart-pin BLOCK=<number>"; exit 1
-else
-	@echo "🔁 Restarting Anvil pinned to $(BLOCK)…"
-	FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d --force-recreate anvil
-endif
+	@if [ -z "$(BLOCK)" ]; then echo "Usage: make restart-pin BLOCK=<number>"; exit 1; fi
+	@FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d --force-recreate anvil
 
 down:
 	@echo "🧹 Stopping and removing all containers..."
