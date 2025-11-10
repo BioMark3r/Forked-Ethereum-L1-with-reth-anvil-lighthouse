@@ -13,20 +13,22 @@ services:
     ports:
       - "8545:8545"
       - "8551:8551"
-    entrypoint: ["/bin/sh","-lc"]            # ← run a shell
+    entrypoint: ["/bin/sh","-lc"]
     command: >
-      set -e;
-      RETH_CMD='reth node --chain mainnet --datadir /data
-                --http --http.addr 0.0.0.0 --http.port 8545
-                --authrpc.addr 0.0.0.0 --authrpc.port 8551
-                --authrpc.jwtsecret /secrets/jwt.hex';
       if [ -n "$$RETH_TIP_HASH" ] && [ "$$RETH_TIP_HASH" != "null" ]; then
         echo "Using debug tip: $$RETH_TIP_HASH";
-        RETH_CMD="$$RETH_CMD --debug.tip $$RETH_TIP_HASH";
+        exec reth node --chain mainnet --datadir /data
+          --http --http.addr 0.0.0.0 --http.port 8545
+          --authrpc.addr 0.0.0.0 --authrpc.port 8551
+          --authrpc.jwtsecret /secrets/jwt.hex
+          --debug.tip $$RETH_TIP_HASH;
       else
         echo "No RETH_TIP_HASH provided; starting without --debug.tip";
-      fi;
-      exec $$RETH_CMD
+        exec reth node --chain mainnet --datadir /data
+          --http --http.addr 0.0.0.0 --http.port 8545
+          --authrpc.addr 0.0.0.0 --authrpc.port 8551
+          --authrpc.jwtsecret /secrets/jwt.hex;
+      fi
 
   lighthouse:
     image: sigp/lighthouse:latest
