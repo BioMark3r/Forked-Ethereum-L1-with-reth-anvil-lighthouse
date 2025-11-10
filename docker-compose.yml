@@ -1,28 +1,33 @@
 services:
-  reth-fork:
-    image: ghcr.io/paradigmxyz/reth:latest
-    container_name: reth-fork
-    restart: unless-stopped
-    env_file: [.env]
-    networks:
-      ethnet:
-        ipv4_address: 172.28.0.10
-    volumes:
-      - reth_data:/data
-      - ./jwt.hex:/secrets/jwt.hex:ro
-    ports:
-      - "8545:8545"   # Reth JSON-RPC (HTTP)
-      - "8551:8551"   # Engine API (JWT)
-    entrypoint: ["/bin/sh", "-lc"]
-    command: >
-      reth node
-      --chain mainnet
-      --debug.rpc-consensus-url ${MAINNET_RPC_WSS?Set MAINNET_RPC_WSS in .env}
-      $${RETH_TIP_HASH:+--debug.tip $${RETH_TIP_HASH}}
-      --datadir /data
-      --http --http.addr 0.0.0.0 --http.port 8545
-      --authrpc.addr 0.0.0.0 --authrpc.port 8551
-      --authrpc.jwtsecret /secrets/jwt.hex
+reth-fork:
+  image: ghcr.io/paradigmxyz/reth:latest
+  container_name: reth-fork
+  restart: unless-stopped
+  env_file: [.env]
+  # keep your network/ip/ports/volumes as you had them
+  volumes:
+    - reth_data:/data
+    - ./jwt.hex:/secrets/jwt.hex:ro
+  ports:
+    - "8545:8545"
+    - "8551:8551"
+  command:
+    - node
+    - --chain
+    - mainnet
+    - --datadir
+    - /data
+    - --http
+    - --http.addr
+    - 0.0.0.0
+    - --http.port
+    - "8545"
+    - --authrpc.addr
+    - 0.0.0.0
+    - --authrpc.port
+    - "8551"
+    - --authrpc.jwtsecret
+    - /secrets/jwt.hex
 
   lighthouse:
     image: sigp/lighthouse:latest
