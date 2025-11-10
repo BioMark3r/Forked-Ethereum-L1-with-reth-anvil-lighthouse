@@ -29,9 +29,13 @@ tip-hash:
 
 # Start everything; if a tip is available, pass it to Reth
 up-auto:
-	@echo "🚀 Starting Reth (auto-tip if available) → Lighthouse → Anvil"
 	@TIP=""
-	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then TIP=$$(make -s tip-hash || true); fi ; \
+	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then \
+	  TIP=$$(curl -s -X POST "$(MAINNET_RPC_HTTPS)" \
+	    -H 'Content-Type: application/json' \
+	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' \
+	    | jq -r '.result.hash'); \
+	fi ; \
 	if [ -n "$$TIP" ] && [ "$$TIP" != "null" ]; then \
 	  echo "📌 Using Reth tip $$TIP"; \
 	  RETH_TIP_HASH=$$TIP docker compose up -d reth-fork; \
@@ -39,8 +43,8 @@ up-auto:
 	  echo "ℹ️ No valid tip; starting Reth without --debug.tip"; \
 	  docker compose up -d reth-fork; \
 	fi
-	@docker compose up -d lighthouse
-	@docker compose up -d anvil
+	docker compose up -d lighthouse
+	docker compose up -d anvil
 
 up-pin:
 	@if [ -z "$(BLOCK)" ]; then echo "Usage: make up-pin BLOCK=<number>"; exit 1; fi
