@@ -72,22 +72,22 @@ services:
     restart: unless-stopped
     depends_on:
       - reth-fork
-    entrypoint: ["/bin/sh", "-lc"]
     networks:
       ethnet:
         ipv4_address: 10.200.0.12
     ports:
-      - "8547:8547"   # Anvil JSON-RPC
-    command: >
-      anvil
-      --fork-url ${RETH_RPC_URL}      # <— talk to Reth by IP
-      $${FORK_BLOCK_NUMBER:+--fork-block-number $${FORK_BLOCK_NUMBER}}
-      --chain-id 1
-      --network-id 1
-      --host 0.0.0.0
-      --port 8547
-      --auto-impersonate
-      --mnemonic "test test test test test test test test test test test junk"
+      - "8547:8547"
+    entrypoint: ["anvil"]
+    command:
+      - --fork-url
+      - http://10.200.0.10:8545      # Reth RPC by IP
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8547"
+      - --chain-id
+      - "1"
+
 
 volumes:
   reth_data:
