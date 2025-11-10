@@ -75,7 +75,7 @@ services:
     entrypoint: ["/bin/sh", "-lc"]
     networks:
       ethnet:
-        ipv4_address: 10.200.0.0.12
+        ipv4_address: 10.200.0.12
     ports:
       - "8547:8547"   # Anvil JSON-RPC
     command: >
