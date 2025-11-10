@@ -52,7 +52,6 @@ services:
       - http://172.28.0.10:8551     # <— talk to Reth by IP
       - --execution-jwt
       - /secrets/jwt.hex
-      - --allow-insecure-genesis-sync
       - --checkpoint-sync-url
       - https://mainnet.checkpoint.sigp.io
       - --http
