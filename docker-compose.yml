@@ -16,19 +16,22 @@ services:
     entrypoint: ["/bin/sh","-lc"]
     command: |
       set -e
-      CMD="reth node \
+      RETH_CMD="reth node \
         --chain mainnet \
         --datadir /data \
         --http --http.addr 0.0.0.0 --http.port 8545 \
         --authrpc.addr 0.0.0.0 --authrpc.port 8551 \
         --authrpc.jwtsecret /secrets/jwt.hex"
-      if [ -n "${RETH_TIP_HASH}" ] && [ "${RETH_TIP_HASH}" != "null" ]; then
-        CMD="$CMD --debug.tip ${RETH_TIP_HASH}"
-        echo "Using debug tip: ${RETH_TIP_HASH}"
+
+      # Only add --debug.tip if the env var is set (and not 'null').
+      if [ -n "$$RETH_TIP_HASH" ] && [ "$$RETH_TIP_HASH" != "null" ]; then
+        echo "Using debug tip: $$RETH_TIP_HASH"
+        RETH_CMD="$$RETH_CMD --debug.tip $$RETH_TIP_HASH"
       else
         echo "No RETH_TIP_HASH provided; starting without --debug.tip"
       fi
-      exec $CMD
+
+      exec $$RETH_CMD
 
   lighthouse:
     image: sigp/lighthouse:latest
