@@ -31,6 +31,7 @@ services:
       - "8551"
       - --authrpc.jwtsecret
       - /secrets/jwt.hex
+      - $${RETH_TIP_HASH:+--debug.tip $${RETH_TIP_HASH}}
 
   lighthouse:
     image: sigp/lighthouse:latest
