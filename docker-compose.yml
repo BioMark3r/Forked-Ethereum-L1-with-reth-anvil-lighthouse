@@ -1,5 +1,5 @@
 services:
-    reth-fork:
+  reth-fork:
     image: ghcr.io/paradigmxyz/reth:latest
     container_name: reth-fork
     restart: unless-stopped
@@ -13,25 +13,8 @@ services:
     ports:
       - "8545:8545"
       - "8551:8551"
-    command:
-      - /bin/sh
-      - -lc
-      - >
-        set -e;
-        RETH_CMD="reth node
-        --chain mainnet
-        --datadir /data
-        --http --http.addr 0.0.0.0 --http.port 8545
-        --authrpc.addr 0.0.0.0 --authrpc.port 8551
-        --authrpc.jwtsecret /secrets/jwt.hex";
-        if [ -n "$$RETH_TIP_HASH" ] && [ "$$RETH_TIP_HASH" != "null" ]; then
-          echo "Using debug tip: $$RETH_TIP_HASH";
-          RETH_CMD="$$RETH_CMD --debug.tip $$RETH_TIP_HASH";
-        else
-          echo "No RETH_TIP_HASH provided; starting without --debug.tip";
-        fi;
-        exec $$RETH_CMD
-  
+    command: ["/bin/sh","-lc","set -e; RETH_CMD='reth node --chain mainnet --datadir /data --http --http.addr 0.0.0.0 --http.port 8545 --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /secrets/jwt.hex'; if [ -n \"$$RETH_TIP_HASH\" ] && [ \"$$RETH_TIP_HASH\" != \"null\" ]; then echo Using debug tip: $$RETH_TIP_HASH; RETH_CMD=\"$$RETH_CMD --debug.tip $$RETH_TIP_HASH\"; else echo No RETH_TIP_HASH provided; fi; exec $$RETH_CMD"]
+
   lighthouse:
     image: sigp/lighthouse:latest
     container_name: lighthouse
