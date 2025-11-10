@@ -49,7 +49,7 @@ services:
       - --network
       - ${LIGHTHOUSE_NETWORK:-mainnet}
       - --execution-endpoint
-      - http://172.28.0.10:8551     # <— talk to Reth by IP
+      - http://172.28.0.2:8551     # <— talk to Reth by IP
       - --execution-jwt
       - /secrets/jwt.hex
       - --checkpoint-sync-url
