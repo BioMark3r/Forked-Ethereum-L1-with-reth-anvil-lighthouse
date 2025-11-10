@@ -16,17 +16,6 @@ discover-el:
 	sleep 2 ; EL_IP=$$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' reth-fork); fi; \
 	echo "$$EL_IP"
 
-up-auto:
-	@EL_IP=$$(make -s discover-el); \
-	echo "EL at $$EL_IP"; \
-	RETH_ENGINE_URL="http://$$EL_IP:8551" \
-	RETH_RPC_URL="http://$$EL_IP:8545" \
-	docker compose up -d lighthouse; \
-	RETH_ENGINE_URL="http://$$EL_IP:8551" \
-	RETH_RPC_URL="http://$$EL_IP:8545" \
-	docker compose up -d anvil; \
-	echo "Lighthouse and Anvil pointed at $$EL_IP"
-
 # Helper: get latest execution tip hash from your MAINNET_RPC_HTTPS
 # Requires: jq installed locally
 tip-hash:
@@ -38,29 +27,20 @@ tip-hash:
 	  --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' \
 	  | jq -r .result.hash
 
-# Start everything, auto tip if no BLOCK is provided (Anvil follows latest unless pinned)
+# Start everything; if a tip is available, pass it to Reth
 up-auto:
-	@echo "🚀 Starting Reth (auto-tip if available) + Lighthouse + Anvil…"
-	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then \
-	  T=$$(make -s tip-hash); \
+	@echo "🚀 Starting Reth (auto-tip if available) → Lighthouse → Anvil"
+	@TIP=""
+	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then TIP=$$(make -s tip-hash || true); fi ; \
+	if [ -n "$$TIP" ] && [ "$$TIP" != "null" ]; then \
+	  echo "📌 Using Reth tip $$TIP"; \
+	  RETH_TIP_HASH=$$TIP docker compose up -d reth-fork; \
 	else \
-	  T=""; \
-	fi; \
-	if [ -n "$$T" ] && [ "$$T" != "null" ]; then \
-	  echo "📌 Using Reth tip $$T"; \
-	  RETH_TIP_HASH=$$T docker compose up -d reth-fork; \
-	else \
-	  echo "ℹ️ No tip available (or MAINNET_RPC_HTTPS unset); starting Reth without --debug.tip"; \
+	  echo "ℹ️ No valid tip; starting Reth without --debug.tip"; \
 	  docker compose up -d reth-fork; \
-	fi; \
-	docker compose up -d lighthouse; \
-	if [ -n "$(BLOCK)" ]; then \
-	  echo "📎 Pinning Anvil at block $(BLOCK)"; \
-	  FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil; \
-	else \
-	  docker compose up -d anvil; \
 	fi
-
+	@docker compose up -d lighthouse
+	@docker compose up -d anvil
 
 up-pin:
 	@if [ -z "$(BLOCK)" ]; then echo "Usage: make up-pin BLOCK=<number>"; exit 1; fi
