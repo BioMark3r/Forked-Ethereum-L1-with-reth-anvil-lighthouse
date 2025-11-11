@@ -6,10 +6,6 @@ SHELL := /bin/bash
 # === Default confirmations offset if not specified ===
 CONFIRMATIONS ?= 5
 
-SHELL := /bin/bash
--include .env
-.ONESHELL:
-
 discover-el:
 	@EL_IP=$$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' reth-fork 2>/dev/null || true); \
 	if [ -z "$$EL_IP" ]; then echo "Starting reth…" ; docker compose up -d reth-fork ; \
