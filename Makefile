@@ -19,6 +19,7 @@ discover-el:
 # Helper: get latest execution tip hash from your MAINNET_RPC_HTTPS
 # Requires: jq installed locally
 # Try multiple RPCs until one returns a real hash
+# Try multiple RPCs until one returns a real hash
 tip-hash:
 	@set -e
 	@sources=()
