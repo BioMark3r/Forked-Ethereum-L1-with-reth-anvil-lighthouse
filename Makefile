@@ -18,32 +18,36 @@ discover-el:
 
 # Helper: get latest execution tip hash from your MAINNET_RPC_HTTPS
 # Requires: jq installed locally
+# Try multiple RPCs until one returns a real hash
 tip-hash:
-	@if [ -z "$(MAINNET_RPC_HTTPS)" ]; then \
-	  echo "MAINNET_RPC_HTTPS not set; cannot auto-compute tip" >&2; exit 2; \
-	fi
-	@curl -s -X POST "$(MAINNET_RPC_HTTPS)" \
-	  -H 'Content-Type: application/json' \
-	  --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' \
-	  | jq -r .result.hash
-
-# Start everything; if a tip is available, pass it to Reth
-up-auto:
-	@TIP=""
-	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then \
-	  TIP=$$(curl -s -X POST "$(MAINNET_RPC_HTTPS)" \
+	@set -e
+	@sources=()
+	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then sources+=("$(MAINNET_RPC_HTTPS)"); fi
+	# Common public fallbacks (you can remove what you don’t want)
+	@sources+=("https://cloudflare-eth.com")
+	@sources+=("https://ethereum-rpc.publicnode.com")
+	@for URL in "$${sources[@]}"; do \
+	  echo "• trying $$URL" >&2; \
+	  HASH=$$(curl -s -X POST "$$URL" \
 	    -H 'Content-Type: application/json' \
 	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' \
 	    | jq -r '.result.hash'); \
-	fi ; \
-	if [ -n "$$TIP" ] && [ "$$TIP" != "null" ]; then \
+	  if [[ "$$HASH" =~ ^0x[0-9a-fA-F]{64}$$ ]]; then echo "$$HASH"; exit 0; fi; \
+	done; \
+	echo "null"
+
+up-auto:
+	@echo "🔎 fetching latest execution tip…"
+	@TIP=$$(make -s tip-hash); \
+	echo "tip: $$TIP"; \
+	if [ "$$TIP" != "null" ]; then \
 	  echo "📌 Using Reth tip $$TIP"; \
-	  RETH_TIP_HASH=$$TIP docker compose up -d reth-fork; \
+	  RETH_TIP_HASH=$$TIP docker compose up -d --force-recreate reth-fork; \
 	else \
-	  echo "ℹ️ No valid tip; starting Reth without --debug.tip"; \
-	  docker compose up -d reth-fork; \
-	fi
-	docker compose up -d lighthouse
+	  echo "⚠️  No tip available; Reth will sync from genesis (slow)."; \
+	  RETH_TIP_HASH= docker compose up -d --force-recreate reth-fork; \
+	fi; \
+	docker compose up -d lighthouse; \
 	docker compose up -d anvil
 
 up-pin:
