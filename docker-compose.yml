@@ -13,8 +13,22 @@ services:
     ports:
       - "8545:8545"
       - "8551:8551"
-    entrypoint: ["/bin/sh","-c"]
-    command: ["if [ -n \"$RETH_TIP_HASH\" ] && [ \"$RETH_TIP_HASH\" != \"undefined\" ] && [ \"$RETH_TIP_HASH\" != \"null\" ]; then echo Using debug tip: $RETH_TIP_HASH; exec reth node --chain mainnet --datadir /data --http --http.addr 0.0.0.0 --http.port 8545 --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /secrets/jwt.hex --debug.tip $RETH_TIP_HASH; else echo No RETH_TIP_HASH provided; exec reth node --chain mainnet --datadir /data --http --http.addr 0.0.0.0 --http.port 8545 --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /secrets/jwt.hex; fi"]
+  reth-fork:
+    image: ghcr.io/paradigmxyz/reth:latest
+    container_name: reth-fork
+    restart: unless-stopped
+    env_file: [.env]
+    volumes:
+      - reth_data:/data
+      - ./jwt.hex:/secrets/jwt.hex:ro
+      - ./start-reth.sh:/usr/local/bin/start-reth.sh:ro
+    networks:
+      ethnet:
+        ipv4_address: 10.200.0.10
+    ports:
+      - "8545:8545"
+      - "8551:8551"
+    entrypoint: ["/usr/local/bin/start-reth.sh"]
 
   lighthouse:
     image: sigp/lighthouse:latest
