@@ -16,43 +16,53 @@ discover-el:
 # Requires: jq installed locally
 # Try multiple RPCs until one returns a real hash
 tip-hash:
-	@set -e
-	# Build endpoint list: env-provided first, then public fallbacks
-	endpoints=()
-	[ -n "$(MAINNET_RPC_HTTPS)" ] && endpoints+=("$(MAINNET_RPC_HTTPS)")
-	endpoints+=("https://cloudflare-eth.com")
-	endpoints+=("https://ethereum-rpc.publicnode.com")
+	# strict mode helps catch silent errors
+	set -euo pipefail
+	# Build endpoint list (env first, then fallbacks)
+	ENDPOINTS=""
+	if [[ -n "${MAINNET_RPC_HTTPS:-}" ]]; then
+	  ENDPOINTS+=" ${MAINNET_RPC_HTTPS}"
+	fi
+	ENDPOINTS+=" https://cloudflare-eth.com"
+	ENDPOINTS+=" https://ethereum-rpc.publicnode.com"
 
-	# Try eth_getBlockByNumber 'latest' first; fallback to blockNumber→getBlockByNumber
-	for URL in "$${endpoints[@]}"; do
-	  echo "• trying $$URL" >&2
-	  HASH=$$(curl -sS --max-time 6 --retry 2 --retry-delay 1 \
-	    -H 'Content-Type: application/json' -X POST "$$URL" \
-	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' \
-	    | jq -r '.result.hash' 2>/dev/null || true)
-	  if [[ "$$HASH" =~ ^0x[0-9a-fA-F]{64}$$ ]]; then echo "$$HASH"; exit 0; fi
+	for URL in ${ENDPOINTS}; do
+	  [[ -n "$${URL}" ]] || continue
+	  echo "• trying $${URL}" >&2
 
-	  # Fallback path: get height, then get hash by number
-	  NUM=$$(curl -sS --max-time 6 --retry 2 --retry-delay 1 \
-	    -H 'Content-Type: application/json' -X POST "$$URL" \
-	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
-	    | jq -r '.result' 2>/dev/null || true)
-	  if [[ "$$NUM" =~ ^0x[0-9a-fA-F]+$$ ]]; then
-	    HASH=$$(curl -sS --max-time 6 --retry 2 --retry-delay 1 \
-	      -H 'Content-Type: application/json' -X POST "$$URL" \
-	      --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBlockByNumber\",\"params\":[\"$$NUM\", false]}" \
-	      | jq -r '.result.hash' 2>/dev/null || true)
-	    if [[ "$$HASH" =~ ^0x[0-9a-fA-F]{64}$$ ]]; then echo "$$HASH"; exit 0; fi
+	  # Primary: latest via eth_getBlockByNumber
+	  RESP=$$(curl -sS --max-time 6 -H 'Content-Type: application/json' -X POST "$${URL}" \
+	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' || true)
+	  HASH=$$(printf "%s" "$${RESP}" | jq -r '.result.hash' 2>/dev/null || true)
+	  if printf "%s" "$${HASH}" | grep -Eq '^0x[0-9a-fA-F]{64}$$'; then
+	    echo "$${HASH}"
+	    exit 0
+	  fi
+
+	  # Fallback: number → hash
+	  BN=$$(curl -sS --max-time 6 -H 'Content-Type: application/json' -X POST "$${URL}" \
+	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' || true)
+	  NUM=$$(printf "%s" "$${BN}" | jq -r '.result' 2>/dev/null || true)
+	  if printf "%s" "$${NUM}" | grep -Eq '^0x[0-9a-fA-F]+$$'; then
+	    RESP2=$$(curl -sS --max-time 6 -H 'Content-Type: application/json' -X POST "$${URL}" \
+	      --data "$$(printf '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["%s", false]}' "$${NUM}")" || true)
+	    HASH2=$$(printf "%s" "$${RESP2}" | jq -r '.result.hash' 2>/dev/null || true)
+	    if printf "%s" "$${HASH2}" | grep -Eq '^0x[0-9a-fA-F]{64}$$'; then
+	      echo "$${HASH2}"
+	      exit 0
+	    fi
 	  fi
 	done
+
 	echo "null"
 
 up-auto:
-	@echo "🔎 fetching latest execution tip…"
-	TIP=$$(make -s tip-hash); echo "tip: $$TIP"
-	if [ "$$TIP" != "null" ]; then
-	  echo "📌 Using Reth tip $$TIP"
-	  RETH_TIP_HASH=$$TIP docker compose up -d --force-recreate reth-fork
+	echo "🔎 fetching latest execution tip…"
+	TIP=$$(make -s tip-hash)
+	echo "tip: $${TIP}"
+	if [[ "$${TIP}" != "null" ]]; then
+	  echo "📌 Using Reth tip $${TIP}"
+	  RETH_TIP_HASH=$${TIP} docker compose up -d --force-recreate reth-fork
 	else
 	  echo "⚠️  No tip available; Reth will sync from genesis (slow)."
 	  RETH_TIP_HASH= docker compose up -d --force-recreate reth-fork
