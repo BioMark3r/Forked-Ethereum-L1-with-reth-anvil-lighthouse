@@ -83,6 +83,14 @@ up-pin:
 	@docker compose up -d reth-fork lighthouse
 	@FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil
 
+size:
+	@docker compose run --rm --no-deps --entrypoint sh reth-fork -lc 'du -sh /data || true'
+
+# Forces a prune pass immediately (use sparingly; pruning already runs on interval)
+prune-now:
+	@docker compose run --rm --no-deps --entrypoint reth reth-fork \
+		prune --datadir /data
+
 restart-pin:
 	@if [ -z "$(BLOCK)" ]; then echo "Usage: make restart-pin BLOCK=<number>"; exit 1; fi
 	@FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d --force-recreate anvil
