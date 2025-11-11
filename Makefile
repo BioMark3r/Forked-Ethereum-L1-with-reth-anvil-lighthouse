@@ -19,37 +19,54 @@ discover-el:
 # Helper: get latest execution tip hash from your MAINNET_RPC_HTTPS
 # Requires: jq installed locally
 # Try multiple RPCs until one returns a real hash
-# Try multiple RPCs until one returns a real hash
 tip-hash:
 	@set -e
-	@sources=()
-	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then sources+=("$(MAINNET_RPC_HTTPS)"); fi
-	# Common public fallbacks (you can remove what you don’t want)
-	@sources+=("https://cloudflare-eth.com")
-	@sources+=("https://ethereum-rpc.publicnode.com")
-	@for URL in "$${sources[@]}"; do \
-	  echo "• trying $$URL" >&2; \
-	  HASH=$$(curl -s -X POST "$$URL" \
-	    -H 'Content-Type: application/json' \
+	# Build endpoint list: env-provided first, then public fallbacks
+	endpoints=()
+	[ -n "$(MAINNET_RPC_HTTPS)" ] && endpoints+=("$(MAINNET_RPC_HTTPS)")
+	endpoints+=("https://cloudflare-eth.com")
+	endpoints+=("https://ethereum-rpc.publicnode.com")
+
+	# Try eth_getBlockByNumber 'latest' first; fallback to blockNumber→getBlockByNumber
+	for URL in "$${endpoints[@]}"; do
+	  echo "• trying $$URL" >&2
+	  HASH=$$(curl -sS --max-time 6 --retry 2 --retry-delay 1 \
+	    -H 'Content-Type: application/json' -X POST "$$URL" \
 	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' \
-	    | jq -r '.result.hash'); \
-	  if [[ "$$HASH" =~ ^0x[0-9a-fA-F]{64}$$ ]]; then echo "$$HASH"; exit 0; fi; \
-	done; \
+	    | jq -r '.result.hash' 2>/dev/null || true)
+	  if [[ "$$HASH" =~ ^0x[0-9a-fA-F]{64}$$ ]]; then echo "$$HASH"; exit 0; fi
+
+	  # Fallback path: get height, then get hash by number
+	  NUM=$$(curl -sS --max-time 6 --retry 2 --retry-delay 1 \
+	    -H 'Content-Type: application/json' -X POST "$$URL" \
+	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+	    | jq -r '.result' 2>/dev/null || true)
+	  if [[ "$$NUM" =~ ^0x[0-9a-fA-F]+$$ ]]; then
+	    HASH=$$(curl -sS --max-time 6 --retry 2 --retry-delay 1 \
+	      -H 'Content-Type: application/json' -X POST "$$URL" \
+	      --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBlockByNumber\",\"params\":[\"$$NUM\", false]}" \
+	      | jq -r '.result.hash' 2>/dev/null || true)
+	    if [[ "$$HASH" =~ ^0x[0-9a-fA-F]{64}$$ ]]; then echo "$$HASH"; exit 0; fi
+	  fi
+	done
 	echo "null"
 
 up-auto:
 	@echo "🔎 fetching latest execution tip…"
-	@TIP=$$(make -s tip-hash); \
-	echo "tip: $$TIP"; \
-	if [ "$$TIP" != "null" ]; then \
-	  echo "📌 Using Reth tip $$TIP"; \
-	  RETH_TIP_HASH=$$TIP docker compose up -d --force-recreate reth-fork; \
-	else \
-	  echo "⚠️  No tip available; Reth will sync from genesis (slow)."; \
-	  RETH_TIP_HASH= docker compose up -d --force-recreate reth-fork; \
-	fi; \
-	docker compose up -d lighthouse; \
+	TIP=$$(make -s tip-hash); echo "tip: $$TIP"
+	if [ "$$TIP" != "null" ]; then
+	  echo "📌 Using Reth tip $$TIP"
+	  RETH_TIP_HASH=$$TIP docker compose up -d --force-recreate reth-fork
+	else
+	  echo "⚠️  No tip available; Reth will sync from genesis (slow)."
+	  RETH_TIP_HASH= docker compose up -d --force-recreate reth-fork
+	fi
+	docker compose up -d lighthouse
 	docker compose up -d anvil
+
+# Handy: show the exact argv the reth container is running with
+reth-argv:
+	@docker exec reth-fork sh -lc 'tr "\0" " " < /proc/1/cmdline' | sed 's/ \+/\n  /g' | sed '1s/^/reth argv:\n  /'
 
 up-pin:
 	@if [ -z "$(BLOCK)" ]; then echo "Usage: make up-pin BLOCK=<number>"; exit 1; fi
