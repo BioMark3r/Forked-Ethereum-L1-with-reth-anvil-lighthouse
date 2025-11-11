@@ -112,3 +112,16 @@ status:
 	@echo "🔎 Lighthouse REST  : https://$$(grep DOMAIN_LH .env | cut -d= -f2)"
 	@echo "🔎 Anvil RPC        : https://$$(grep DOMAIN_ANVIL .env | cut -d= -f2)"
 	@echo "🔎 Reth RPC         : https://$$(grep DOMAIN_RETH .env | cut -d= -f2)"
+
+check-fork:
+	@echo "Reth latest:"
+	@curl -s -X POST http://127.0.0.1:8545 -H 'Content-Type: application/json' \
+	  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
+	@curl -s -X POST http://127.0.0.1:8545 -H 'Content-Type: application/json' \
+	  --data '{"jsonrpc":"2.0","id":2,"method":"eth_getBlockByNumber","params":["latest", false]}' | jq -r '.result.hash'
+	@echo "Anvil latest:"
+	@curl -s -X POST http://127.0.0.1:8547 -H 'Content-Type: application/json' \
+	  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
+	@curl -s -X POST http://127.0.0.1:8547 -H 'Content-Type: application/json' \
+	  --data '{"jsonrpc":"2.0","id":2,"method":"eth_getBlockByNumber","params":["latest", false]}' | jq -r '.result.hash'
+
