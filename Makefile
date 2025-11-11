@@ -13,61 +13,21 @@ discover-el:
 	echo "$$EL_IP"
 
 # Helper: get latest execution tip hash from your MAINNET_RPC_HTTPS
-# Requires: jq installed locally
-# Try multiple RPCs until one returns a real hash
+
 tip-hash:
-	# strict mode helps catch silent errors
-	set -euo pipefail
-	# Build endpoint list (env first, then fallbacks)
-	ENDPOINTS=""
-	if [[ -n "${MAINNET_RPC_HTTPS:-}" ]]; then
-	  ENDPOINTS+=" ${MAINNET_RPC_HTTPS}"
-	fi
-	ENDPOINTS+=" https://cloudflare-eth.com"
-	ENDPOINTS+=" https://ethereum-rpc.publicnode.com"
-
-	for URL in ${ENDPOINTS}; do
-	  [[ -n "$${URL}" ]] || continue
-	  echo "• trying $${URL}" >&2
-
-	  # Primary: latest via eth_getBlockByNumber
-	  RESP=$$(curl -sS --max-time 6 -H 'Content-Type: application/json' -X POST "$${URL}" \
-	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' || true)
-	  HASH=$$(printf "%s" "$${RESP}" | jq -r '.result.hash' 2>/dev/null || true)
-	  if printf "%s" "$${HASH}" | grep -Eq '^0x[0-9a-fA-F]{64}$$'; then
-	    echo "$${HASH}"
-	    exit 0
-	  fi
-
-	  # Fallback: number → hash
-	  BN=$$(curl -sS --max-time 6 -H 'Content-Type: application/json' -X POST "$${URL}" \
-	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' || true)
-	  NUM=$$(printf "%s" "$${BN}" | jq -r '.result' 2>/dev/null || true)
-	  if printf "%s" "$${NUM}" | grep -Eq '^0x[0-9a-fA-F]+$$'; then
-	    RESP2=$$(curl -sS --max-time 6 -H 'Content-Type: application/json' -X POST "$${URL}" \
-	      --data "$$(printf '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["%s", false]}' "$${NUM}")" || true)
-	    HASH2=$$(printf "%s" "$${RESP2}" | jq -r '.result.hash' 2>/dev/null || true)
-	    if printf "%s" "$${HASH2}" | grep -Eq '^0x[0-9a-fA-F]{64}$$'; then
-	      echo "$${HASH2}"
-	      exit 0
-	    fi
-	  fi
-	done
-
-	echo "null"
+	@bin/tip-hash.sh
 
 up-auto:
-	echo "🔎 fetching latest execution tip…"
-	TIP=$$(make -s tip-hash)
-	echo "tip: $${TIP}"
-	if [[ "$${TIP}" != "null" ]]; then
-	  echo "📌 Using Reth tip $${TIP}"
-	  RETH_TIP_HASH=$${TIP} docker compose up -d --force-recreate reth-fork
-	else
-	  echo "⚠️  No tip available; Reth will sync from genesis (slow)."
-	  RETH_TIP_HASH= docker compose up -d --force-recreate reth-fork
-	fi
-	docker compose up -d lighthouse
+	@TIP=$$(bin/tip-hash.sh); \
+	echo "tip: $$TIP"; \
+	if [ "$$TIP" != "null" ]; then \
+	  echo "📌 Using Reth tip $$TIP"; \
+	  RETH_TIP_HASH=$$TIP docker compose up -d --force-recreate reth-fork; \
+	else \
+	  echo "⚠️  No tip available; Reth will sync from genesis (slow)."; \
+	  RETH_TIP_HASH= docker compose up -d --force-recreate reth-fork; \
+	fi; \
+	docker compose up -d lighthouse; \
 	docker compose up -d anvil
 
 # Handy: show the exact argv the reth container is running with
