@@ -3,6 +3,50 @@ SHELL := /bin/bash
 # Load .env if present (for Docker Compose variables)
 -include .env
 
+# Bootstrapping
+
+# Stop just the EL so /data is free for writes
+stop-reth:
+	@docker compose stop reth-fork >/dev/null 2>&1 || true
+
+# Show whether /data looks initialized
+data-status:
+	@docker compose run --rm --no-deps --entrypoint sh reth-fork -lc \
+		'ls -la /data; echo; [ -d /data/db ] && echo "DB present ✅" || echo "DB missing ❌"'
+
+# Smart bootstrap:
+# 1) If `reth download` exists in your image → use it (recommended)
+# 2) Else, if RETH_ERA_URL is set → import ERA from that URL
+# 3) Else → fail with a helpful message
+bootstrap-auto: stop-reth
+	@echo "🔎 Checking if 'reth download' is available…"
+	if docker compose run --rm --no-deps --entrypoint reth reth-fork download --help >/dev/null 2>&1; then \
+		echo "✅ Using 'reth download' (this may take a while)"; \
+		docker compose run --rm --no-deps --entrypoint reth reth-fork \
+			download --chain mainnet --datadir /data; \
+	elif [ -n "$$RETH_ERA_URL" ]; then \
+		echo "⚠️  'download' not found — importing ERA from $$RETH_ERA_URL"; \
+		docker compose run --rm --no-deps --entrypoint reth reth-fork \
+			import-era --url "$$RETH_ERA_URL" --datadir /data; \
+	else \
+		echo "❌ No bootstrap method available."; \
+		echo "   - Use a reth image that has 'reth download' OR"; \
+		echo "   - Set RETH_ERA_URL in .env to a hosted ERA snapshot"; \
+		exit 3; \
+	fi
+	@$(MAKE) data-status
+
+# Optional: import ERA from a local path (run with: make bootstrap-import-path ERA_DIR=/abs/path/to/era)
+bootstrap-import-path: stop-reth
+	@[ -n "$$ERA_DIR" ] || { echo "Usage: make bootstrap-import-path ERA_DIR=/abs/path/to/era"; exit 2; }
+	@echo "⏬ Importing ERA from local path: $$ERA_DIR"
+	@docker compose run --rm --no-deps \
+		-v "$$ERA_DIR":/era:ro \
+		--entrypoint reth reth-fork \
+		import-era --path /era --datadir /data
+	@$(MAKE) data-status
+
+
 # === Default confirmations offset if not specified ===
 CONFIRMATIONS ?= 5
 
