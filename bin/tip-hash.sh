@@ -52,5 +52,4 @@ for URL in "${ENDPOINTS[@]}"; do
 done
 
 echo "null"
-BASH
-chmod +x bin/tip-hash.sh
+
