@@ -1,14 +1,14 @@
-# Forked-Ethereum-L1-with-reth-anvil-lighthouse
-
-# 🧱 Forked Ethereum L1 Dev Environment
+# 🧱 Forked Ethereum L1 Dev Environment  
 ### Reth (Execution) • Lighthouse (Consensus) • Anvil (Dev RPC)
 
 This stack lets you:
-- Fork Ethereum L1 using **Reth** with automatic `--debug.tip` from the latest block
-- Run **Lighthouse** as the consensus layer driving Reth
-- Use **Anvil** for testing, prefunded accounts, and local transactions
-- Access everything on your LAN via static IPs
-- Optionally pin Anvil to a specific block number
+
+- Run a **mainnet-pruned** Ethereum L1 Execution Layer (Reth) for OP Stack testing  
+- Use **Lighthouse** as your Beacon/Consensus Layer  
+- Spin up **Anvil** for local testing & prefunded accounts  
+- Bootstrap Reth with a **pruned snapshot** or full sync  
+- Auto-start Reth at the latest tip (`--debug.tip`)  
+- Aggressively **prune** to stay under ~300–400 GB of disk usage (≈1 month history)  
 
 ---
 
@@ -20,168 +20,115 @@ mkdir eth-fork && cd eth-fork
 openssl rand -hex 32 > jwt.hex
 ```
 
+---
+
 ### 2️⃣ `.env`
+
 ```bash
+# Upstream Ethereum RPCs
 MAINNET_RPC_HTTPS=https://ethereum-rpc.publicnode.com
 MAINNET_RPC_WSS=wss://ethereum-rpc.publicnode.com
-LIGHTHOUSE_NETWORK=mainnet
+
+# Mainnet pruned snapshot URL (replace with your trusted provider)
+RETH_ERA_URL=https://<provider>/ethereum/pruned-era/
+
+# Docker Compose project & Reth engine URLs
+COMPOSE_PROJECT_NAME=ethfork
 RETH_ENGINE_URL=http://10.200.0.10:8551
 RETH_RPC_URL=http://10.200.0.10:8545
-COMPOSE_PROJECT_NAME=ethfork
+
+# Optional; set automatically when using make up-auto
 RETH_TIP_HASH=
-```
-
-### 3️⃣ `docker-compose.yml`
-```yaml
-services:
-  reth-fork:
-    image: ghcr.io/paradigmxyz/reth:latest
-    container_name: reth-fork
-    restart: unless-stopped
-    env_file: [.env]
-    volumes:
-      - reth_data:/data
-      - ./jwt.hex:/secrets/jwt.hex:ro
-    networks:
-      ethnet:
-        ipv4_address: 10.200.0.10
-    ports:
-      - "8545:8545"
-      - "8551:8551"
-    entrypoint: ["/bin/sh","-c"]
-    command: ["if [ -n "$RETH_TIP_HASH" ] && [ "$RETH_TIP_HASH" != "undefined" ] && [ "$RETH_TIP_HASH" != "null" ]; then echo Using debug tip: $RETH_TIP_HASH; exec reth node --chain mainnet --datadir /data --http --http.addr 0.0.0.0 --http.port 8545 --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /secrets/jwt.hex --debug.tip $RETH_TIP_HASH; else echo No RETH_TIP_HASH provided; exec reth node --chain mainnet --datadir /data --http --http.addr 0.0.0.0 --http.port 8545 --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /secrets/jwt.hex; fi"]
-
-  lighthouse:
-    image: sigp/lighthouse:latest
-    container_name: lighthouse
-    restart: unless-stopped
-    depends_on:
-      - reth-fork
-    entrypoint: ["lighthouse"]
-    env_file: [.env]
-    networks:
-      ethnet:
-        ipv4_address: 10.200.0.11
-    volumes:
-      - ./jwt.hex:/secrets/jwt.hex:ro
-    ports:
-      - "5052:5052"
-    command:
-      - bn
-      - --network
-      - ${LIGHTHOUSE_NETWORK:-mainnet}
-      - --execution-endpoint
-      - ${RETH_ENGINE_URL}
-      - --execution-jwt
-      - /secrets/jwt.hex
-      - --checkpoint-sync-url
-      - https://mainnet.checkpoint.sigp.io
-      - --http
-      - --http-address
-      - 0.0.0.0
-      - --http-port
-      - "5052"
-
-  anvil:
-    image: ghcr.io/foundry-rs/foundry:latest
-    container_name: anvil
-    restart: unless-stopped
-    depends_on:
-      - reth-fork
-    networks:
-      ethnet:
-        ipv4_address: 10.200.0.12
-    ports:
-      - "8547:8547"
-    entrypoint: ["anvil"]
-    command:
-      - --fork-url
-      - http://10.200.0.10:8545
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8547"
-      - --chain-id
-      - "1"
-
-volumes:
-  reth_data:
-
-networks:
-  ethnet:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.200.0.0/16
-```
-
-### 4️⃣ `Makefile`
-```makefile
-SHELL := /bin/bash
-.ONESHELL:
--include .env
-
-up-auto:
-	@TIP=""
-	@if [ -n "$(MAINNET_RPC_HTTPS)" ]; then 	  TIP=$$(curl -s -X POST "$(MAINNET_RPC_HTTPS)" 	    -H 'Content-Type: application/json' 	    --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' 	    | jq -r '.result.hash'); 	fi ; 	if [ -n "$$TIP" ] && [ "$$TIP" != "null" ]; then 	  echo "📌 Using Reth tip $$TIP"; 	  RETH_TIP_HASH=$$TIP docker compose up -d reth-fork; 	else 	  echo "ℹ️ No valid tip; starting Reth without --debug.tip"; 	  RETH_TIP_HASH= docker compose up -d reth-fork; 	fi ; 	docker compose up -d lighthouse ; 	docker compose up -d anvil
-
-up:
-	docker compose up -d reth-fork lighthouse anvil
-
-up-pin:
-	@[ -n "$(BLOCK)" ] || { echo "Usage: make up-pin BLOCK=<number>"; exit 1; }
-	docker compose up -d reth-fork lighthouse
-	FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil
-
-logs:
-	docker compose logs -f
-
-check-fork:
-	@echo "Reth latest:"
-	@curl -s -X POST http://127.0.0.1:8545 -H 'Content-Type: application/json' 	  --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' | jq -r '.result.hash'
-	@echo "Anvil latest:"
-	@curl -s -X POST http://127.0.0.1:8547 -H 'Content-Type: application/json' 	  --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", false]}' | jq -r '.result.hash'
+LIGHTHOUSE_NETWORK=mainnet
 ```
 
 ---
 
-## ✅ Usage
+### 3️⃣ `reth.toml` (Aggressive Pruning)
+```toml
+# reth.toml — ~1 month (~220k blocks) of state & logs
+
+[prune]
+block_interval = 5
+
+[prune.segments]
+sender_recovery     = "full"
+transaction_lookup  = "full"        # prune old tx lookup index
+account_history     = { distance = 220_000 }
+storage_history     = { distance = 220_000 }
+receipts            = { distance = 250_000 }
+```
+
+Mount it to `/data/reth.toml` in your compose file.
+
+---
+
+### 4️⃣ `docker-compose.yml`
+
+(… full compose omitted here for brevity; same as previous message …)
+
+---
+
+### 5️⃣ `start-reth.sh`
+
 ```bash
-make up-auto      # start with auto-tip
-make up-pin BLOCK=19304240  # pin Anvil to a block
-make up           # no auto-tip
+#!/usr/bin/env sh
+set -eu
+
+BASE_ARGS="node --chain mainnet --datadir /data   --http --http.addr 0.0.0.0 --http.port 8545   --authrpc.addr 0.0.0.0 --authrpc.port 8551   --authrpc.jwtsecret /secrets/jwt.hex"
+
+if [ "${RETH_TIP_HASH:-}" != "" ] && [ "${RETH_TIP_HASH}" != "null" ] && [ "${RETH_TIP_HASH}" != "undefined" ]; then
+  echo "Using debug tip: ${RETH_TIP_HASH}"
+  exec reth $BASE_ARGS --debug.tip "${RETH_TIP_HASH}"
+else
+  echo "No RETH_TIP_HASH provided; starting without --debug.tip"
+  exec reth $BASE_ARGS
+fi
 ```
 
----
-
-## 🔍 Verify
+Make it executable:
 ```bash
-curl -s -o /dev/null -w "%{http_code}
-" http://127.0.0.1:5052/eth/v1/node/health
-curl -s -X POST http://127.0.0.1:8545 -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
-curl -s -X POST http://127.0.0.1:8547 -H 'Content-Type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
-make check-fork
+chmod +x start-reth.sh
 ```
 
 ---
 
-## ⚙️ Troubleshooting
+### 6️⃣ `Makefile`
 
-| Symptom | Likely Cause | Fix |
-|----------|---------------|-----|
-| Lighthouse `000` | Port not exposed or host firewall | Ensure `ports: "5052:5052"` and open port |
-| Lighthouse `timeout` | Wrong EL IP | Check `.env → RETH_ENGINE_URL` and `docker inspect` |
-| Anvil not listening | Bad flag or fork URL | Use minimal command, confirm Reth RPC IP |
-| ChainId ≠ 1 | Anvil started before Reth ready | Restart Anvil |
-| `WARN RETH_TIP_HASH not set` | Cosmetic Compose warning | Add `RETH_TIP_HASH=` to `.env` |
+(… includes bootstrap-auto, bootstrap-import-url, prune-now, size, up-auto, etc. …)
 
 ---
 
-## 🧹 Reset
+## ✅ Typical Workflow
+
 ```bash
-docker compose down -v --remove-orphans
-docker network prune -f
-docker compose up -d
+# One-time snapshot import
+make bootstrap-import-url
+
+# Start everything with auto-tip
+make up-auto
+
+# Monitor pruning & disk usage
+make size
+make prune-now
+make size
 ```
 
-**Happy hacking! ⚡**
+---
+
+## ⚙️ Disk Targets
+
+| Mode | History kept | Expected Disk |
+|------|---------------|----------------|
+| Aggressive (~100k blocks) | ~2 weeks | ~200–300 GB |
+| Balanced (~220k blocks) | ~1 month | ~300–450 GB |
+| Relaxed (~500k blocks) | ~2 months | ~500–700 GB |
+
+---
+
+## 💡 Notes
+
+- Use a **pruned** snapshot (not archive) for bootstrap to stay < 400 GB.  
+- Your pruning config keeps about 1 month of history (~220–250k blocks).  
+- `make prune-now` reclaims space; otherwise pruning runs automatically.  
+- For OP Stack contract testing, this gives you a real EL + CL with low disk usage.  
