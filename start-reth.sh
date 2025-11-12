@@ -5,7 +5,7 @@ BASE_ARGS="node --chain mainnet --datadir /data \
   --http --http.addr 0.0.0.0 --http.port 8545 \
   --authrpc.addr 0.0.0.0 --authrpc.port 8551 \
   --authrpc.jwtsecret /secrets/jwt.hex \
-  --metrics --metrics.addr 0.0.0.0 --metrics.port 9001"
+  --metrics 0.0.0.0:9001"
 
 if [ "${RETH_TIP_HASH:-}" != "" ] && [ "${RETH_TIP_HASH}" != "null" ] && [ "${RETH_TIP_HASH}" != "undefined" ]; then
   echo "Using debug tip: ${RETH_TIP_HASH}"
