@@ -72,6 +72,21 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      ethnet:
+        ipv4_address: 10.200.0.14
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
   anvil:
     image: ghcr.io/foundry-rs/foundry:latest
     container_name: anvil
