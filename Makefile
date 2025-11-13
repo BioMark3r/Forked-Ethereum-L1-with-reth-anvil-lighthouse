@@ -86,6 +86,46 @@ up-pin:
 size:
 	@docker compose run --rm --no-deps --entrypoint sh reth-fork -lc 'du -sh /data || true'
 
+# Snapshot and restore
+
+BACKUP_DIR ?= ./backups
+SNAP_NAME  ?= reth-$(shell date +%Y%m%d-%H%M%S).tar.zst
+
+# Ensure backup dir exists
+ensure-backup-dir:
+	@mkdir -p "$(BACKUP_DIR)"
+
+# Stop just Reth so DB is consistent before snapshot
+stop-reth:
+	@docker compose stop reth-fork >/dev/null 2>&1 || true
+
+start-reth:
+	@docker compose up -d reth-fork
+
+# Create a compressed snapshot of the reth_data volume (stopped)
+snapshot-reth: ensure-backup-dir stop-reth
+	@echo "📦 Creating snapshot: $(BACKUP_DIR)/$(SNAP_NAME)"
+	@docker run --rm \
+	  -v reth_data:/data:ro \
+	  -v "$(BACKUP_DIR)":/backup \
+	  alpine:3 sh -lc 'apk add --no-cache zstd >/dev/null && cd / && tar -I "zstd -19 -T0" -cf /backup/$(SNAP_NAME) data'
+	@echo "✅ Snapshot written to $(BACKUP_DIR)/$(SNAP_NAME)"
+
+# List snapshots
+snapshots:
+	@ls -lh $(BACKUP_DIR)/*.tar.zst 2>/dev/null || echo "No snapshots yet."
+
+# Restore from a snapshot (usage: make restore-reth FILE=backups/reth-YYYYMMDD-HHMMSS.tar.zst)
+restore-reth: stop-reth
+	@[ -n "$$FILE" ] || { echo "Usage: make restore-reth FILE=backups/<name>.tar.zst"; exit 2; }
+	@echo "♻️ Restoring $$FILE into reth_data volume"
+	@docker run --rm \
+	  -v reth_data:/data \
+	  -v "$$FILE":/backup/reth.tar.zst \
+	  alpine:3 sh -lc 'apk add --no-cache zstd >/dev/null && rm -rf /data/* && cd / && tar -I zstd -xf /backup/reth.tar.zst'
+	@$(MAKE) start-reth
+	@echo "✅ Restore complete"
+
 # Forces a prune pass immediately (use sparingly; pruning already runs on interval)
 prune-now:
 	@docker compose run --rm --no-deps --entrypoint reth reth-fork \
