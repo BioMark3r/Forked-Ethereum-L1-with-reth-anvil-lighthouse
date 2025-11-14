@@ -73,6 +73,12 @@ up-auto:
 	fi; \
 	docker compose up -d lighthouse; \
 	docker compose up -d anvil
+	docker compose up -d prometheus grafana; \
+	echo "✅ Stack up: reth-fork, lighthouse, anvil, prometheus, grafana"
+
+# Optionally: just start monitoring if EL/CL are already up
+up-monitoring:
+	@docker compose up -d prometheus grafana
 
 # Handy: show the exact argv the reth container is running with
 reth-argv:
