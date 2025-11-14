@@ -1,0 +1,168 @@
+{
+  "id": null,
+  "title": "Lighthouse \u2022 Basics",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "tags": [
+    "lighthouse",
+    "beacon",
+    "ethereum"
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Lighthouse up (Prometheus)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"lighthouse\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Beacon head slot",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "max(beacon_head_slot)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Finalized epoch",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "max(beacon_finalized_epoch)"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Peers",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "expr": "libp2p_peer_count"
+        }
+      ],
+      "lines": true,
+      "fill": 1,
+      "linewidth": 2
+    },
+    {
+      "type": "graph",
+      "title": "Sync distance (slots)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "expr": "beacon_sync_distance"
+        }
+      ],
+      "lines": true,
+      "fill": 1,
+      "linewidth": 2
+    },
+    {
+      "type": "graph",
+      "title": "Memory (RSS)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"lighthouse\"}"
+        }
+      ],
+      "lines": true,
+      "fill": 1,
+      "linewidth": 2
+    },
+    {
+      "type": "graph",
+      "title": "CPU seconds (cumulative)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"lighthouse\"}[5m])"
+        }
+      ],
+      "lines": true,
+      "fill": 1,
+      "linewidth": 2
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  }
+}
