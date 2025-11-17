@@ -98,8 +98,18 @@ size:
 
 BACKUP_DIR ?= ./backups
 SNAP_NAME  ?= reth-$(shell date +%Y%m%d-%H%M%S).tar.zst
+SNAP_NAME  ?= reth-$(shell date +%Y%m%d-%H%M%S).tar.zst
 
-# Stop just Reth so the DB is quiescent
+# Resolve the actual volume name mounted at /data in the reth-fork container
+_reth_vol:
+	@VOL=$$(docker inspect reth-fork --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{println .Name}}{{end}}{{end}}'); \
+	if [ -z "$$VOL" ]; then \
+	  echo "❌ Could not resolve /data volume from reth-fork. Is the container running once?"; \
+	  echo "   Tip: docker compose up -d reth-fork"; \
+	  exit 2; \
+	fi; \
+	echo $$VOL > .reth_vol
+
 stop-reth:
 	@docker compose stop reth-fork >/dev/null 2>&1 || true
 
@@ -109,17 +119,23 @@ start-reth:
 ensure-backup-dir:
 	@mkdir -p "$(BACKUP_DIR)"
 
-# Create compressed snapshot of the reth_data volume (read-only mount)
-snapshot-reth: ensure-backup-dir stop-reth
-	@echo "📦 Creating snapshot: $(BACKUP_DIR)/$(SNAP_NAME)"
-	@docker run --rm \
-	  -v reth_data:/data:ro \
+# Snapshot using the EXACT /data volume name
+snapshot-reth: ensure-backup-dir stop-reth _reth_vol
+	@VOL=$$(cat .reth_vol); \
+	echo "📦 Creating snapshot from volume '$$VOL' → $(BACKUP_DIR)/$(SNAP_NAME)"; \
+	docker run --rm \
+	  -v $$VOL:/data:ro \
 	  -v "$(BACKUP_DIR)":/backup \
 	  alpine:3 sh -lc '\
 	    apk add --no-cache zstd >/dev/null && \
 	    cd / && tar -cf - data | zstd -T0 -19 -o /backup/$(SNAP_NAME) \
-	  '
-	@echo "✅ Snapshot written to $(BACKUP_DIR)/$(SNAP_NAME)"
+	  '; \
+	STAT=$$?; \
+	if [ $$STAT -eq 0 ]; then \
+	  echo "✅ Snapshot written to $(BACKUP_DIR)/$(SNAP_NAME)"; \
+	else \
+	  echo "❌ Snapshot failed"; exit $$STAT; \
+	fi
 
 # List snapshots
 snapshots:
