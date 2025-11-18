@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: 'OP Stack EL+CL'
+  - name: 'Forked Ethereum L1 Stack EL+CL'
     orgId: 1
-    folder: 'OP Stack'
+    folder: 'ETH L1 Stack'
     type: file
     options:
       path: /var/lib/grafana/dashboards
