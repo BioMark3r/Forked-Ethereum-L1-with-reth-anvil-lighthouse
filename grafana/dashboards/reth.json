@@ -4,7 +4,7 @@
       "name": "DS_PROMETHEUS",
       "label": "Prometheus",
       "description": "",
-      "type": "datasource",
+      "datasource": { "type": "prometheus", "uid": "prom" },
       "pluginId": "prometheus",
       "pluginName": "Prometheus"
     },
