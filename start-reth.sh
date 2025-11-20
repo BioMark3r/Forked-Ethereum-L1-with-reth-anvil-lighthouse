@@ -3,6 +3,7 @@ set -eu
 
 BASE_ARGS="node --chain mainnet --datadir /data \
   --http --http.addr 0.0.0.0 --http.port 8545 \
+  --http.api eth,net,web3 \
   --authrpc.addr 0.0.0.0 --authrpc.port 8551 \
   --authrpc.jwtsecret /secrets/jwt.hex \
   --metrics 0.0.0.0:9001"
