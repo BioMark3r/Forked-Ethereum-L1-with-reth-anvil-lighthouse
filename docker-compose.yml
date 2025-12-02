@@ -13,7 +13,7 @@ services:
       ethnet:
         ipv4_address: 10.200.0.10
     ports:
-      - "8545:8545"
+      #- "8545:8545" # Default to Anvil only
       - "8551:8551"
       - "9001:9001"   # Reth Prometheus metrics
     entrypoint: ["/usr/local/bin/start-reth.sh"]
