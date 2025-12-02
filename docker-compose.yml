@@ -114,7 +114,7 @@ services:
       - --chain-id
       - "1"
       - --mnemonic
-      - "local dev mnemonic do not use on mainnet only testing purpose"
+      - "local mnemonic horse train trailer concept bad ignore test"
       - --accounts
       - "10"
       - --balance
