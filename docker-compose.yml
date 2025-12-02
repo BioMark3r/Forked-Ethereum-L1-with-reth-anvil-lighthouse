@@ -113,8 +113,8 @@ services:
       - "8547"
       - --chain-id
       - "1"
-      - --mnemonic
-      - "local breach horse train trailer concept bad ignore test"
+      - --mnemonic # This is a TEST mneumonic DO NOT USE for PRODUCTION
+      - "gravity make plunge split install write release minor origianl energy steel borrow bronze gather pattern"
       - --accounts
       - "10"
       - --balance
