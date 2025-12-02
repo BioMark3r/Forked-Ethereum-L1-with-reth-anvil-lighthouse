@@ -113,6 +113,12 @@ services:
       - "8547"
       - --chain-id
       - "1"
+      - --mnemonic
+      - "this is a local dev mnemonic do not use on mainnet"
+      - --accounts
+      - "10"
+      - --balance
+      - "10000"
 
 
 volumes:
