@@ -90,6 +90,7 @@ up-pin:
 	@if [ -z "$(BLOCK)" ]; then echo "Usage: make up-pin BLOCK=<number>"; exit 1; fi
 	@docker compose up -d reth-fork lighthouse
 	@FORK_BLOCK_NUMBER=$(BLOCK) docker compose up -d anvil
+	docker compose up -d prometheus grafana; \
 
 size:
 	@docker compose run --rm --no-deps --entrypoint sh reth-fork -lc 'du -sh /data || true'
