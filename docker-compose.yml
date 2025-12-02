@@ -114,7 +114,7 @@ services:
       - --chain-id
       - "1"
       - --mnemonic
-      - "local mnemonic horse train trailer concept bad ignore test"
+      - "local breach horse train trailer concept bad ignore test"
       - --accounts
       - "10"
       - --balance
