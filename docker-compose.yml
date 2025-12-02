@@ -114,7 +114,7 @@ services:
       - --chain-id
       - "1"
       - --mnemonic
-      - "this is a local dev mnemonic do not use on mainnet"
+      - "local dev mnemonic do not use on mainnet only testing purpose"
       - --accounts
       - "10"
       - --balance
