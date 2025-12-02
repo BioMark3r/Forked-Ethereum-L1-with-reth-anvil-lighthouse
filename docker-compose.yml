@@ -114,7 +114,7 @@ services:
       - --chain-id
       - "1"
       - --mnemonic # This is a TEST mneumonic DO NOT USE for PRODUCTION
-      - "gravity make plunge split install write release minor origianl energy steel borrow bronze gather pattern"
+      - "gravity make plunge split install write release minor original energy steel borrow bronze gather pattern"
       - --accounts
       - "10"
       - --balance
