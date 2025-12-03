@@ -126,6 +126,7 @@ volumes:
 
 networks:
   ethnet:
+    name: forknet
     driver: bridge
     ipam:
       config:
