@@ -102,7 +102,7 @@ services:
       ethnet:
         ipv4_address: 10.200.0.12
     ports:
-      - "172.0.0.1:8547:8547"
+      - "127.0.0.1:8547:8547"
     entrypoint: ["anvil"]
     command:
       - --fork-url
