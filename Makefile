@@ -7,10 +7,6 @@ SHELL := /bin/bash
 
 # Bootstrapping
 
-# Stop just the EL so /data is free for writes
-stop-reth:
-	@docker compose stop reth-fork >/dev/null 2>&1 || true
-
 # Show whether /data looks initialized
 data-status:
 	@docker compose run --rm --no-deps --entrypoint sh reth-fork -lc \
