@@ -1,8 +1,8 @@
 # reth.toml — aggressive-but-safe pruning for dev use
-[prune]
+[pruning]
 block_interval = 5
 
-[prune.segments]
+[pruning.segments]
 # fully prune older sender recovery & tx lookup (big space win)
 sender_recovery     = "full"
 transaction_lookup  = "full"
