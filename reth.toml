@@ -1,16 +1,15 @@
 # reth.toml — aggressive-but-safe pruning for dev use
-[pruning]
+[prune]
 block_interval = 5
 
-[pruning.segments]
+[prune.segments]
 # fully prune older sender recovery & tx lookup (big space win)
 sender_recovery     = "full"
-transaction_lookup  = "full"
 
 # keep only recent history for accounts/storage (lower = smaller disk)
-account_history     = { distance = 200_000 }
-storage_history     = { distance = 200_000 }
+account_history     = { distance = 100_000 }
+storage_history     = { distance = 100_000 }
 
 # receipts index can be pruned far back if you don't query old logs often
-receipts            = { distance = 250_000 }
+receipts            = { distance = 150_000 }
 
