@@ -76,11 +76,20 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     command:
       - --config.file=/etc/prometheus/prometheus.yml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     networks:
