@@ -4,7 +4,10 @@
   "timezone": "browser",
   "schemaVersion": 38,
   "version": 1,
-  "datasource": { "type": "prometheus", "uid": "prom" },
+  "datasource": {
+    "type": "prometheus",
+    "uid": "prom"
+  },
   "tags": [
     "lighthouse",
     "beacon",
@@ -34,6 +37,10 @@
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
       }
     },
     {
@@ -59,6 +66,10 @@
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
       }
     },
     {
@@ -84,6 +95,10 @@
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
       }
     },
     {
@@ -102,7 +117,11 @@
       ],
       "lines": true,
       "fill": 1,
-      "linewidth": 2
+      "linewidth": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      }
     },
     {
       "type": "graph",
@@ -120,7 +139,11 @@
       ],
       "lines": true,
       "fill": 1,
-      "linewidth": 2
+      "linewidth": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      }
     },
     {
       "type": "graph",
@@ -138,7 +161,11 @@
       ],
       "lines": true,
       "fill": 1,
-      "linewidth": 2
+      "linewidth": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      }
     },
     {
       "type": "graph",
@@ -156,7 +183,11 @@
       ],
       "lines": true,
       "fill": 1,
-      "linewidth": 2
+      "linewidth": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      }
     }
   ],
   "templating": {
