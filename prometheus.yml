@@ -6,8 +6,8 @@ global:
 scrape_configs:
   - job_name: "reth"
     static_configs:
-      - targets: ["10.200.0.10:9001"]   # reth metrics
+      - targets: ["reth-fork:9001"]   # reth metrics
 
   - job_name: "lighthouse"
     static_configs:
-      - targets: ["10.200.0.11:5054"]   # lighthouse metrics
+      - targets: ["lighthouse:5054"]   # lighthouse metrics
