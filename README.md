@@ -27,6 +27,8 @@ openssl rand -hex 32 > jwt.hex
 MAINNET_RPC_HTTPS=https://ethereum-rpc.publicnode.com
 MAINNET_RPC_WSS=wss://ethereum-rpc.publicnode.com
 RETH_ERA_URL=https://<provider>/ethereum/pruned-era/
+RETH_SNAPSHOT_URL=https://snapshots.reth.rs/mainnet/latest
+RETH_SNAPSHOT_PROFILE=full   # optional: minimal | full | archive
 COMPOSE_PROJECT_NAME=ethfork
 RETH_ENGINE_URL=http://10.200.0.10:8551
 RETH_RPC_URL=http://10.200.0.10:8545
@@ -234,7 +236,9 @@ make restore-reth FILE=backups/reth-2025xxxx-HHmmss.tar.zst  # Restore
 ## ⚙️ Typical Workflow
 
 ```bash
-make bootstrap-import-url   # or make bootstrap-auto
+make bootstrap-reth-snapshot SNAPSHOT_URL=https://snapshots.reth.rs/mainnet/latest SNAPSHOT_PROFILE=archive
+make bootstrap-auto            # uses RETH_SNAPSHOT_URL first, then reth download default, then RETH_ERA_URL
+                              # SNAPSHOT_PROFILE / RETH_SNAPSHOT_PROFILE supports: minimal | full | archive
 make up-auto
 make size                   # check disk usage
 make prune-now              

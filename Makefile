@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: stop-reth start-reth ensure-backup-dir snapshot-reth snapshots restore-reth size
+.PHONY: stop-reth start-reth ensure-backup-dir snapshot-reth snapshots restore-reth size bootstrap-reth-snapshot bootstrap-reth-download
 
 # Load .env if present (for Docker Compose variables)
 -include .env
@@ -13,26 +13,69 @@ data-status:
 		'ls -la /data; echo; [ -d /data/db ] && echo "DB present ✅" || echo "DB missing ❌"'
 
 # Smart bootstrap:
-# 1) If `reth download` exists in your image → use it (recommended)
-# 2) Else, if RETH_ERA_URL is set → import ERA from that URL
-# 3) Else → fail with a helpful message
+# 1) If `RETH_SNAPSHOT_URL` is set and `reth download` exists in your image → download from that snapshot archive
+# 2) Else, if `reth download` exists in your image → use the default snapshot source
+# 3) Else, if RETH_ERA_URL is set → import ERA from that URL
+# 4) Else → fail with a helpful message
+#
+# Snapshot flavors (optional):
+#   SNAPSHOT_PROFILE=minimal|full|archive (or set RETH_SNAPSHOT_PROFILE in .env)
 bootstrap-auto: stop-reth
-	@echo "🔎 Checking if 'reth download' is available…"
-	if docker compose run --rm --no-deps --entrypoint reth reth-fork download --help >/dev/null 2>&1; then \
-		echo "✅ Using 'reth download' (this may take a while)"; \
-		docker compose run --rm --no-deps --entrypoint reth reth-fork \
-			download --chain mainnet --datadir /data; \
+	@echo "🔎 Checking bootstrap options…"
+	if [ -n "$$RETH_SNAPSHOT_URL" ]; then \
+		$(MAKE) bootstrap-reth-snapshot SNAPSHOT_URL="$$RETH_SNAPSHOT_URL" SNAPSHOT_PROFILE="$${SNAPSHOT_PROFILE:-$${RETH_SNAPSHOT_PROFILE:-}}"; \
+	elif docker compose run --rm --no-deps --entrypoint reth reth-fork download --help >/dev/null 2>&1; then \
+		echo "✅ Using default 'reth download' source (this may take a while)"; \
+		$(MAKE) bootstrap-reth-download SNAPSHOT_PROFILE="$${SNAPSHOT_PROFILE:-$${RETH_SNAPSHOT_PROFILE:-}}"; \
 	elif [ -n "$$RETH_ERA_URL" ]; then \
 		echo "⚠️  'download' not found — importing ERA from $$RETH_ERA_URL"; \
 		docker compose run --rm --no-deps --entrypoint reth reth-fork \
 			import-era --url "$$RETH_ERA_URL" --datadir /data; \
+		$(MAKE) data-status; \
 	else \
 		echo "❌ No bootstrap method available."; \
 		echo "   - Use a reth image that has 'reth download' OR"; \
+		echo "   - Set RETH_SNAPSHOT_URL in .env (e.g. https://snapshots.reth.rs/mainnet/latest) OR"; \
 		echo "   - Set RETH_ERA_URL in .env to a hosted ERA snapshot"; \
 		exit 3; \
 	fi
+
+# Internal helper used by bootstrap targets.
+# Usage:
+#   make bootstrap-reth-download [SNAPSHOT_URL=...] [SNAPSHOT_PROFILE=minimal|full|archive]
+bootstrap-reth-download: stop-reth
+	@PROFILE="$${SNAPSHOT_PROFILE:-$${RETH_SNAPSHOT_PROFILE:-}}"; \
+	FLAG=""; \
+	if [ -n "$$PROFILE" ]; then \
+		case "$$PROFILE" in \
+			minimal) FLAG="--minimal" ;; \
+			full) FLAG="--full" ;; \
+			archive) FLAG="--archive" ;; \
+			*) echo "❌ Invalid SNAPSHOT_PROFILE='$$PROFILE'. Use one of: minimal, full, archive."; exit 2 ;; \
+		esac; \
+	fi; \
+	if docker compose run --rm --no-deps --entrypoint reth reth-fork download --help >/dev/null 2>&1; then \
+		if [ -n "$$SNAPSHOT_URL" ]; then \
+			echo "⏬ Downloading Reth snapshot from $$SNAPSHOT_URL $${FLAG:+($$PROFILE)}"; \
+			docker compose run --rm --no-deps --entrypoint reth reth-fork \
+				download --chain mainnet --datadir /data --from "$$SNAPSHOT_URL" $$FLAG; \
+		else \
+			echo "⏬ Downloading Reth snapshot from default source $${FLAG:+($$PROFILE)}"; \
+			docker compose run --rm --no-deps --entrypoint reth reth-fork \
+				download --chain mainnet --datadir /data $$FLAG; \
+		fi; \
+	else \
+		echo "❌ This reth image does not include 'reth download'."; \
+		echo "   Update ghcr.io/paradigmxyz/reth:latest or use make bootstrap-import-path / bootstrap-auto with RETH_ERA_URL."; \
+		exit 3; \
+	fi
 	@$(MAKE) data-status
+
+# Download and use a snapshot archive (e.g. from https://snapshots.reth.rs/)
+# Usage: make bootstrap-reth-snapshot SNAPSHOT_URL=https://snapshots.reth.rs/mainnet/latest [SNAPSHOT_PROFILE=minimal|full|archive]
+bootstrap-reth-snapshot: stop-reth
+	@[ -n "$$SNAPSHOT_URL" ] || { echo "Usage: make bootstrap-reth-snapshot SNAPSHOT_URL=https://snapshots.reth.rs/mainnet/latest [SNAPSHOT_PROFILE=minimal|full|archive]"; exit 2; }
+	@$(MAKE) bootstrap-reth-download SNAPSHOT_URL="$$SNAPSHOT_URL" SNAPSHOT_PROFILE="$$SNAPSHOT_PROFILE"
 
 # Optional: import ERA from a local path (run with: make bootstrap-import-path ERA_DIR=/abs/path/to/era)
 bootstrap-import-path: stop-reth
